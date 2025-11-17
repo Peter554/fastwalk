@@ -33,7 +33,27 @@ def walk(
     min_depth: int | None = ...,
     max_filesize: int | None = ...,
     threads: int = ...,
-    on_error: Literal["continue"] = ...,
+    on_error: Literal["ignore"] = ...,
+) -> Iterator[DirEntry]: ...
+
+
+@overload
+def walk(
+    root: _PathLike,
+    *,
+    filter: str | Collection[str] = ...,
+    exclude: str | Collection[str] = ...,
+    ignore_hidden: bool = ...,
+    respect_git_ignore: bool = ...,
+    respect_global_git_ignore: bool = ...,
+    respect_git_exclude: bool = ...,
+    respect_ignore: bool = ...,
+    follow_symlinks: bool = ...,
+    max_depth: int | None = ...,
+    min_depth: int | None = ...,
+    max_filesize: int | None = ...,
+    threads: int = ...,
+    on_error: Literal["raise"],
 ) -> Iterator[DirEntry]: ...
 
 
@@ -72,7 +92,7 @@ def walk(
     min_depth: int | None = None,
     max_filesize: int | None = None,
     threads: int = 0,
-    on_error: Literal["continue", "yield"] = "continue",
+    on_error: Literal["ignore", "raise", "yield"] = "ignore",
 ):
     """Walk a directory tree in parallel, yielding DirEntry objects.
 
@@ -97,18 +117,19 @@ def walk(
     - `max_filesize`: Maximum file size in bytes to consider.
     - `threads`: Number of threads to use (0 for automatic, based on CPU count).
     - `on_error`: How to handle errors during traversal:
-      - `"continue"` (default): Silently ignore errors and only yield DirEntry objects.
+      - `"ignore"` (default): Silently ignore errors and only yield DirEntry objects.
+      - `"raise"`: Raise an exception on the first error encountered.
       - `"yield"`: Yield both DirEntry and Error objects.
 
     ## Returns
 
-    An iterator that yields `DirEntry` objects (if `on_error="continue"`) or
+    An iterator that yields `DirEntry` objects (if `on_error="ignore"` or `"raise"`) or
     `DirEntry | Error` objects (if `on_error="yield"`).
 
     ## Example
 
     ```python
-    # Default: continue on errors, only yield successful entries
+    # Default: ignore on errors, only yield successful entries
     for entry in walk(".", filter="**/*.py"):
         print(entry.path)
 
@@ -119,6 +140,13 @@ def walk(
                 print(result.path)
             case Error():
                 print(f"Error at {result.path}: {result.message}")
+
+    # Raise on first error
+    try:
+        for entry in walk(".", filter="**/*.py", on_error="raise"):
+            print(entry.path)
+    except (FileNotFoundError, PermissionError, OSError) as e:
+        print(f"Error: {e}")
 
     # Exclude patterns
     for entry in walk(".", filter="**/*.py", exclude=["**/test_*", "**/__pycache__"]):
@@ -153,9 +181,11 @@ def walk(
 
     dir_walker = _DirWalker(walk_iterator)
 
-    if on_error == "continue":
+    if on_error == "ignore":
         return _ErrorIgnoringDirWalker(dir_walker)
-    else:
+    elif on_error == "raise":
+        return _ErrorRaisingDirWalker(dir_walker)
+    else:  # on_error == "yield"
         return dir_walker
 
 
@@ -232,16 +262,37 @@ class Error:
             return None
         return ErrorKind(self._core_error.kind)
 
-    def raise_(self):
+    def as_exception(self) -> OSError:
+        """Convert this error into a Python exception.
+
+        Converts the error into a standard Python exception based on the error kind:
+        - NotFound → FileNotFoundError
+        - PermissionDenied → PermissionError
+        - FilesystemLoop → OSError with ELOOP
+        - Unknown → OSError
+
+        Returns:
+            OSError: An appropriate exception instance (FileNotFoundError, PermissionError, or OSError)
+
+        Example:
+            ```python
+            for result in walk(".", on_error="yield"):
+                match result:
+                    case DirEntry():
+                        print(result.path)
+                    case Error():
+                        raise result.as_exception()
+            ```
+        """
         match self.kind:
             case ErrorKind.NotFound:
-                raise FileNotFoundError(errno.ENOENT, self.message, self.path_str)
+                return FileNotFoundError(errno.ENOENT, self.message, self.path_str)
             case ErrorKind.PermissionDenied:
-                raise PermissionError(errno.EACCES, self.message, self.path_str)
+                return PermissionError(errno.EACCES, self.message, self.path_str)
             case ErrorKind.FilesystemLoop:
-                raise OSError(errno.ELOOP, self.message, self.path_str)
-            case None:
-                raise OSError(self.message)
+                return OSError(errno.ELOOP, self.message, self.path_str)
+            case _:
+                return OSError(self.message)
 
 
 class ErrorKind(enum.StrEnum):
@@ -286,3 +337,20 @@ class _ErrorIgnoringDirWalker(Iterator[DirEntry]):
             result = next(self._dir_walker)
             if isinstance(result, DirEntry):
                 return result
+
+
+class _ErrorRaisingDirWalker(Iterator[DirEntry]):
+    """Iterator that yields DirEntry objects and raises on errors."""
+
+    def __init__(self, dir_walker: _DirWalker):
+        self._dir_walker = dir_walker
+
+    def __iter__(self) -> _ErrorRaisingDirWalker:
+        return self
+
+    def __next__(self) -> DirEntry:
+        result = next(self._dir_walker)
+        if isinstance(result, DirEntry):
+            return result
+        # It's an Error - raise it
+        raise result.as_exception()

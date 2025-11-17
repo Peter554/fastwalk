@@ -428,7 +428,7 @@ def test_error_kind_permission_denied(tmp_path):
         assert len(permission_errors) > 0
 
         with pytest.raises(PermissionError):
-            permission_errors[0].raise_()
+            raise permission_errors[0].as_exception()
     finally:
         os.chmod(restricted_dir, stat.S_IRWXU)
 
@@ -442,7 +442,7 @@ def test_error_kind_not_found(tmp_path):
     assert len(not_found_errors) > 0
 
     with pytest.raises(FileNotFoundError):
-        not_found_errors[0].raise_()
+        raise not_found_errors[0].as_exception()
 
 
 def test_error_kind_filesystem_loop(tmp_path):
@@ -462,5 +462,25 @@ def test_error_kind_filesystem_loop(tmp_path):
     assert len(loop_errors) > 0
 
     with pytest.raises(OSError) as e:
-        loop_errors[0].raise_()
+        raise loop_errors[0].as_exception()
     assert e.value.errno == errno.ELOOP  #  # ty: ignore[unresolved-attribute]
+
+
+def test_on_error_raise(tmp_path):
+    """Test that on_error='raise' raises exceptions on errors."""
+    import os
+    import stat
+
+    restricted_dir = tmp_path / "restricted"
+    restricted_dir.mkdir()
+    create_file(restricted_dir / "file.txt")
+    create_file(tmp_path / "accessible.txt")
+
+    try:
+        os.chmod(restricted_dir, 0o000)
+
+        # Should raise an exception when encountering the restricted directory
+        with pytest.raises(PermissionError):
+            list(powerwalk.walk(tmp_path, on_error="raise"))
+    finally:
+        os.chmod(restricted_dir, stat.S_IRWXU)
