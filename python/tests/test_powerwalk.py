@@ -386,8 +386,8 @@ def test_error_handling(tmp_path):
     try:
         os.chmod(restricted_dir, 0o000)
 
-        # Walk and collect all results with ignore_errors=False to get Error objects
-        results = list(powerwalk.walk(tmp_path, ignore_errors=False))
+        # Walk and collect all results with on_error="yield" to get Error objects
+        results = list(powerwalk.walk(tmp_path, on_error="yield"))
 
         # Check that we get DirEntry objects
         entries = [r for r in results if isinstance(r, powerwalk.DirEntry)]

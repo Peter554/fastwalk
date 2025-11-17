@@ -31,7 +31,7 @@ def walk(
     min_depth: int | None = ...,
     max_filesize: int | None = ...,
     threads: int = ...,
-    ignore_errors: Literal[True] = ...,
+    on_error: Literal["continue"] = ...,
 ) -> Iterator[DirEntry]: ...
 
 
@@ -51,7 +51,7 @@ def walk(
     min_depth: int | None = ...,
     max_filesize: int | None = ...,
     threads: int = ...,
-    ignore_errors: Literal[False],
+    on_error: Literal["yield"],
 ) -> "Iterator[DirEntry | Error]": ...
 
 
@@ -70,7 +70,7 @@ def walk(
     min_depth: int | None = None,
     max_filesize: int | None = None,
     threads: int = 0,
-    ignore_errors: bool = True,
+    on_error: Literal["continue", "yield"] = "continue",
 ):
     """Walk a directory tree in parallel, yielding DirEntry objects.
 
@@ -94,23 +94,24 @@ def walk(
     - `min_depth`: Minimum depth before yielding entries.
     - `max_filesize`: Maximum file size in bytes to consider.
     - `threads`: Number of threads to use (0 for automatic, based on CPU count).
-    - `ignore_errors`: If True (default), silently ignore errors and only yield DirEntry objects.
-      If False, yield both DirEntry and Error objects.
+    - `on_error`: How to handle errors during traversal:
+      - `"continue"` (default): Silently ignore errors and only yield DirEntry objects.
+      - `"yield"`: Yield both DirEntry and Error objects.
 
     ## Returns
 
-    An iterator that yields `DirEntry` objects (if `ignore_errors=True`) or
-    `DirEntry | Error` objects (if `ignore_errors=False`).
+    An iterator that yields `DirEntry` objects (if `on_error="continue"`) or
+    `DirEntry | Error` objects (if `on_error="yield"`).
 
     ## Example
 
     ```python
-    # Default: ignore errors and only process successful entries
+    # Default: continue on errors, only yield successful entries
     for entry in walk(".", filter="**/*.py"):
         print(entry.path)
 
     # Handle errors during directory traversal
-    for result in walk(".", filter="**/*.py", ignore_errors=False):
+    for result in walk(".", filter="**/*.py", on_error="yield"):
         match result:
             case DirEntry():
                 print(result.path)
@@ -150,7 +151,7 @@ def walk(
 
     dir_walker = _DirWalker(walk_iterator)
 
-    if ignore_errors:
+    if on_error == "continue":
         return _ErrorIgnoringDirWalker(dir_walker)
     else:
         return dir_walker

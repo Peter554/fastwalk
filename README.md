@@ -41,7 +41,7 @@ for entry in powerwalk.walk(".", filter="**/*.py"):
         print(entry.path)
 
 # Handle errors during traversal
-for result in powerwalk.walk(".", filter="**/*.py", ignore_errors=False):
+for result in powerwalk.walk(".", filter="**/*.py", on_error="yield"):
     match result:
         case powerwalk.DirEntry():
             print(result.path)
