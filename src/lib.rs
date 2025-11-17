@@ -1,3 +1,5 @@
+#![feature(io_error_more)]
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
@@ -28,9 +30,7 @@ pub struct Error {
     #[pyo3(get)]
     path: Option<String>,
     #[pyo3(get)]
-    line: Option<u64>,
-    #[pyo3(get)]
-    depth: Option<usize>,
+    kind: Option<String>,
 }
 
 enum WalkResult {
@@ -179,13 +179,10 @@ fn walk(
                         let _ = sender.send(WalkResult::DirEntry(dir_entry));
                     }
                     Err(err) => {
-                        let (path_opt, line_opt, depth) = extract_error_info(&err);
-
                         let error = Error {
-                            path: path_opt,
-                            line: line_opt,
-                            depth,
                             message: err.to_string(),
+                            path: extract_error_path(&err),
+                            kind: extract_error_kind(&err),
                         };
                         let _ = sender.send(WalkResult::Error(error));
                     }
@@ -207,22 +204,54 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-// Recursively extract information from the ignore::Error
+// Recursively extract the path from the ignore::Error
 // Similar to how is_io() recursively checks variants
-fn extract_error_info(err: &ignore::Error) -> (Option<String>, Option<u64>, Option<usize>) {
+fn extract_error_path(err: &ignore::Error) -> Option<String> {
     match err {
-        ignore::Error::WithLineNumber { line, err } => {
-            let (path, _, depth) = extract_error_info(err);
-            (path, Some(*line), depth)
+        ignore::Error::WithPath { path, .. } => Some(path.to_string_lossy().to_string()),
+        ignore::Error::WithLineNumber { err, .. } => extract_error_path(err),
+        ignore::Error::WithDepth { err, .. } => extract_error_path(err),
+        ignore::Error::Partial(errs) => {
+            if errs.len() == 1 {
+                extract_error_path(&errs[0])
+            } else {
+                None
+            }
         }
-        ignore::Error::WithPath { path, err } => {
-            let (_, line, depth) = extract_error_info(err);
-            (Some(path.to_string_lossy().to_string()), line, depth)
+        _ => None,
+    }
+}
+
+fn extract_error_kind(err: &ignore::Error) -> Option<String> {
+    match err {
+        // Loop error from ignore crate
+        ignore::Error::Loop { .. } => Some("FilesystemLoop".to_string()),
+
+        // Recurse into wrapper errors
+        ignore::Error::WithPath { err, .. } => extract_error_kind(err),
+        ignore::Error::WithLineNumber { err, .. } => extract_error_kind(err),
+        ignore::Error::WithDepth { err, .. } => extract_error_kind(err),
+
+        // Partial errors - check first error
+        ignore::Error::Partial(errs) => {
+            if !errs.is_empty() {
+                extract_error_kind(&errs[0])
+            } else {
+                None
+            }
         }
-        ignore::Error::WithDepth { depth, err } => {
-            let (path, line, _) = extract_error_info(err);
-            (path, line, Some(*depth))
+
+        // IO errors - inspect the std::io::ErrorKind
+        ignore::Error::Io(io_err) => {
+            use std::io::ErrorKind;
+            match io_err.kind() {
+                ErrorKind::NotFound => Some("NotFound".to_string()),
+                ErrorKind::PermissionDenied => Some("PermissionDenied".to_string()),
+                ErrorKind::FilesystemLoop => Some("FilesystemLoop".to_string()),
+                _ => None,
+            }
         }
-        _ => (None, None, None),
+
+        _ => None,
     }
 }

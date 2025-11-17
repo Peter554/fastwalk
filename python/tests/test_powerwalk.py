@@ -1,6 +1,8 @@
+import errno
 from pathlib import Path
 
 import powerwalk
+import pytest
 
 
 def create_file(path, content=""):
@@ -400,21 +402,65 @@ def test_error_handling(tmp_path):
             assert isinstance(error.message, str)
             assert error.path == restricted_dir
             assert error.path_str == str(restricted_dir)
-            assert error.line is None
-            assert error.depth == 1
     finally:
         # Restore permissions for cleanup
         os.chmod(restricted_dir, stat.S_IRWXU)
 
 
-def test_ignore_errors(tmp_path):
-    """Test that ignore_errors() only yields DirEntry objects."""
-    create_file(tmp_path / "file1.txt")
-    create_file(tmp_path / "file2.txt")
+def test_error_kind_permission_denied(tmp_path):
+    """Test that PermissionDenied error kind is detected."""
+    import os
+    import stat
 
-    # Collect all results using ignore_errors()
-    entries = list(powerwalk.walk(tmp_path))
+    restricted_dir = tmp_path / "restricted"
+    restricted_dir.mkdir()
+    create_file(restricted_dir / "file.txt")
 
-    # All results should be DirEntry objects
-    assert all(isinstance(entry, powerwalk.DirEntry) for entry in entries)
-    assert len(entries) >= 2
+    try:
+        os.chmod(restricted_dir, 0o000)
+
+        results = list(powerwalk.walk(tmp_path, on_error="yield"))
+        errors = [r for r in results if isinstance(r, powerwalk.Error)]
+
+        permission_errors = [
+            e for e in errors if e.kind == powerwalk.ErrorKind.PermissionDenied
+        ]
+        assert len(permission_errors) > 0
+
+        with pytest.raises(PermissionError):
+            permission_errors[0].raise_()
+    finally:
+        os.chmod(restricted_dir, stat.S_IRWXU)
+
+
+def test_error_kind_not_found(tmp_path):
+    """Test that NotFound error kind is detected."""
+    results = list(powerwalk.walk("oops", on_error="yield"))
+    errors = [r for r in results if isinstance(r, powerwalk.Error)]
+
+    not_found_errors = [e for e in errors if e.kind == powerwalk.ErrorKind.NotFound]
+    assert len(not_found_errors) > 0
+
+    with pytest.raises(FileNotFoundError):
+        not_found_errors[0].raise_()
+
+
+def test_error_kind_filesystem_loop(tmp_path):
+    """Test that FilesystemLoop error kind is detected."""
+    # Create a circular symlink
+    link1 = tmp_path / "link1"
+    link2 = tmp_path / "link2"
+
+    link1.symlink_to(link2)
+    link2.symlink_to(link1)
+
+    # Walk with follow_symlinks=True to trigger loop detection
+    results = list(powerwalk.walk(tmp_path, follow_symlinks=True, on_error="yield"))
+    errors = [r for r in results if isinstance(r, powerwalk.Error)]
+
+    loop_errors = [e for e in errors if e.kind == powerwalk.ErrorKind.FilesystemLoop]
+    assert len(loop_errors) > 0
+
+    with pytest.raises(OSError) as e:
+        loop_errors[0].raise_()
+    assert e.value.errno == errno.ELOOP  #  # ty: ignore[unresolved-attribute]

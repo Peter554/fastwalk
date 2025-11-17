@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import dataclasses
+import enum
+import errno
 import functools
 from collections.abc import Collection, Iterator
 from pathlib import Path
@@ -218,20 +220,36 @@ class Error:
         return self._core_error.path
 
     @functools.cached_property
-    def line(self) -> int | None:
-        """The line number in a file where the error occurred, if available.
+    def kind(self) -> ErrorKind | None:
+        """The error kind, if known.
 
-        This is typically set for errors related to parsing ignore files.
+        Returns the kind of error that occurred:
+        - NotFound: File or directory not found
+        - PermissionDenied: Permission denied to access the path
+        - FilesystemLoop: Encountered a filesystem loop (circular symlinks)
         """
-        return self._core_error.line
+        if self._core_error.kind is None:
+            return None
+        return ErrorKind(self._core_error.kind)
 
-    @functools.cached_property
-    def depth(self) -> int | None:
-        """The depth at which the error occurred.
+    def raise_(self):
+        match self.kind:
+            case ErrorKind.NotFound:
+                raise FileNotFoundError(errno.ENOENT, self.message, self.path_str)
+            case ErrorKind.PermissionDenied:
+                raise PermissionError(errno.EACCES, self.message, self.path_str)
+            case ErrorKind.FilesystemLoop:
+                raise OSError(errno.ELOOP, self.message, self.path_str)
+            case None:
+                raise OSError(self.message)
 
-        Depth is measured in terms of the number of directories from the root.
-        """
-        return self._core_error.depth
+
+class ErrorKind(enum.StrEnum):
+    """The kind of error that occurred during directory traversal."""
+
+    NotFound = "NotFound"
+    PermissionDenied = "PermissionDenied"
+    FilesystemLoop = "FilesystemLoop"
 
 
 class _DirWalker(Iterator[DirEntry | Error]):
