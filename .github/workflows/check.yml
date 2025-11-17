@@ -17,6 +17,8 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
