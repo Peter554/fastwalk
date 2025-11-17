@@ -21,7 +21,7 @@ Fast parallel directory walking for Python, powered by Rust.
 
 - 🚀 **Fast**: Uses the rust [ignore](https://crates.io/crates/ignore) crate for fast directory traversal.
 - ⚡ **Parallel**: Multi-threaded directory traversal.
-- 🎯 **Smart filtering**: Built-in support for `.gitignore`, `.ignore`, and glob patterns.
+- 🎯 **Smart filtering**: Built-in support for `.gitignore`, hidden files and glob patterns.
 - 🔒 **Type-safe**: Full type hints.
 - 🛡️ **Error handling**: Flexible error handling with `ignore`, `raise` and `yield` modes.
 
