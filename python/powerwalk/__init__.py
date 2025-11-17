@@ -133,13 +133,6 @@ def walk(
     for entry in walk(".", filter="**/*.py"):
         print(entry.path)
 
-    # Handle errors during directory traversal
-    for result in walk(".", filter="**/*.py", on_error="yield"):
-        match result:
-            case DirEntry():
-                print(result.path)
-            case Error():
-                print(f"Error at {result.path}: {result.message}")
 
     # Raise on first error
     try:
@@ -148,9 +141,13 @@ def walk(
     except (FileNotFoundError, PermissionError, OSError) as e:
         print(f"Error: {e}")
 
-    # Exclude patterns
-    for entry in walk(".", filter="**/*.py", exclude=["**/test_*", "**/__pycache__"]):
-        print(entry.path)
+    # Handle errors during directory traversal
+    for result in walk(".", filter="**/*.py", on_error="yield"):
+        match result:
+            case DirEntry():
+                print(result.path)
+            case Error():
+                print(f"Error at {result.path}: {result.message}")
     ```
     """
     # Convert root to string
