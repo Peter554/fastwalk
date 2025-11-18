@@ -99,7 +99,7 @@ publish MODE:
     just _publish-check-mode "{{MODE}}"
     just check
     just _check-uncommitted-changes
-    cargo bump {{MODE}}
+    just _bump-version {{MODE}}
     just compile-dev
     git add --all
     git commit -m "Bump version v`just _get-version`"
@@ -113,5 +113,10 @@ _publish-check-mode MODE:
 _check-uncommitted-changes:
     @test -z "$(git status -s)" || (echo "Error: There are uncommitted changes" && exit 1)
 
+[working-directory: 'rust']
+_bump-version MODE:
+   cargo bump {{MODE}}
+
+[working-directory: 'rust']
 _get-version:
     @cargo metadata --format-version=1 --no-deps | jq -r '.packages[0].version'
