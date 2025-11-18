@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=1.9,<2.0"]
+requires = ["maturin>=1.10,<2.0"]
 build-backend = "maturin"
 
 [project]
@@ -38,11 +38,11 @@ module-name = "powerwalk._core"
 
 [dependency-groups]
 dev = [
-    "maturin>=1.9.6",
+    "maturin>=1.10.1",
     "pdoc>=16.0.0",
-    "pytest>=8.4.2",
-    "pytest-benchmark>=5.2.2",
+    "pytest>=9.0.1",
+    "pytest-benchmark>=5.2.3",
     "pytest-codspeed>=4.2.0",
-    "ruff>=0.14.4",
-    "ty>=0.0.1a25",
+    "ruff>=0.14.5",
+    "ty>=0.0.1a26",
 ]
