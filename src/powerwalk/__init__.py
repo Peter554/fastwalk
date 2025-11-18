@@ -103,9 +103,9 @@ def walk(
 
     - `root`: The root directory to start walking from.
     - `filter`: Glob pattern(s) to filter files (any matching pattern includes the file).
-      Example: `"*.py"` or `["*.py", "*.txt"]`
+      Example: `"**/*.py"` or `["**/*.py", "**/*.js"]`
     - `exclude`: Glob pattern(s) to exclude files and directories.
-      Example: `"**/node_modules"` or `["**/__pycache__", "**/node_modules"]`
+      Example: `"**/node_modules/"` or `["**/__pycache__/", "**/node_modules/"]`
     - `ignore_hidden`: If True, ignore hidden files and directories.
     - `respect_git_ignore`: If True, respect .gitignore files.
     - `respect_global_git_ignore`: If True, respect global gitignore.
