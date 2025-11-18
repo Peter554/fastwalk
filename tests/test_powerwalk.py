@@ -1,8 +1,10 @@
 import errno
+import platform
 from pathlib import Path
 
-import powerwalk
 import pytest
+
+import powerwalk
 
 
 def create_file(path, content=""):
@@ -407,6 +409,22 @@ def test_error_handling(tmp_path):
         os.chmod(restricted_dir, stat.S_IRWXU)
 
 
+def test_error_kind_not_found(tmp_path):
+    """Test that NotFound error kind is detected."""
+    results = list(powerwalk.walk("oops", on_error="yield"))
+    errors = [r for r in results if isinstance(r, powerwalk.Error)]
+
+    not_found_errors = [e for e in errors if e.kind == powerwalk.ErrorKind.NotFound]
+    assert len(not_found_errors) > 0
+
+    with pytest.raises(FileNotFoundError):
+        raise not_found_errors[0].as_exception()
+
+
+@pytest.mark.skipif(
+    platform.system() == "Windows",
+    reason="Windows handles file permissions differently than Unix-like systems",
+)
 def test_error_kind_permission_denied(tmp_path):
     """Test that PermissionDenied error kind is detected."""
     import os
@@ -433,18 +451,6 @@ def test_error_kind_permission_denied(tmp_path):
         os.chmod(restricted_dir, stat.S_IRWXU)
 
 
-def test_error_kind_not_found(tmp_path):
-    """Test that NotFound error kind is detected."""
-    results = list(powerwalk.walk("oops", on_error="yield"))
-    errors = [r for r in results if isinstance(r, powerwalk.Error)]
-
-    not_found_errors = [e for e in errors if e.kind == powerwalk.ErrorKind.NotFound]
-    assert len(not_found_errors) > 0
-
-    with pytest.raises(FileNotFoundError):
-        raise not_found_errors[0].as_exception()
-
-
 def test_error_kind_filesystem_loop(tmp_path):
     """Test that FilesystemLoop error kind is detected."""
     # Create a circular symlink
@@ -466,21 +472,7 @@ def test_error_kind_filesystem_loop(tmp_path):
     assert e.value.errno == errno.ELOOP  #  # ty: ignore[unresolved-attribute]
 
 
-def test_on_error_raise(tmp_path):
+def test_on_error_raise():
     """Test that on_error='raise' raises exceptions on errors."""
-    import os
-    import stat
-
-    restricted_dir = tmp_path / "restricted"
-    restricted_dir.mkdir()
-    create_file(restricted_dir / "file.txt")
-    create_file(tmp_path / "accessible.txt")
-
-    try:
-        os.chmod(restricted_dir, 0o000)
-
-        # Should raise an exception when encountering the restricted directory
-        with pytest.raises(PermissionError):
-            list(powerwalk.walk(tmp_path, on_error="raise"))
-    finally:
-        os.chmod(restricted_dir, stat.S_IRWXU)
+    with pytest.raises(FileNotFoundError):
+        list(powerwalk.walk("oops", on_error="raise"))
