@@ -1,8 +1,8 @@
 .codspeed
 .benchmarks/
 .claude/settings.local.json
-/target
-/docs
+target/
+docs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

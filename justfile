@@ -24,6 +24,7 @@ test: compile-dev test-rs test-py
 
 # Run Rust tests
 [group('test')]
+[working-directory: 'rust']
 test-rs:
     @cargo test --all-features
 
@@ -43,6 +44,7 @@ lint: lint-rs lint-py
 
 # Run Rust linters
 [group('lint')]
+[working-directory: 'rust']
 lint-rs:
     @cargo clippy --all-targets --all-features -- -D warnings
     @cargo fmt -- --check
@@ -60,6 +62,7 @@ fix: fix-rs fix-py
 
 # Auto-fix Rust issues
 [group('fix')]
+[working-directory: 'rust']
 fix-rs:
     @cargo clippy --all-targets --all-features --fix --allow-staged
     @just fmt

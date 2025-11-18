@@ -32,7 +32,6 @@ Issues = "https://github.com/Peter554/powerwalk/issues"
 Documentation = "https://peter554.github.io/powerwalk/"
 
 [tool.maturin]
-python-source = "python"
 features = ["pyo3/extension-module"]
 module-name = "powerwalk._core"
 
