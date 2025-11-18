@@ -22,9 +22,9 @@ Fast parallel directory walking for Python, powered by Rust.
 - 🚀 **Fast**: Uses the rust [ignore](https://crates.io/crates/ignore) crate for fast directory traversal.
 - ⚡ **Parallel**: Multi-threaded directory traversal.
 - 🎯 **Smart filtering**: Built-in support for `.gitignore`, hidden files and glob patterns.
-- 🔒 **Type-safe**: Full type hints.
 - 🛡️ **Error handling**: Flexible error handling with `ignore`, `raise` and `yield` modes.
 - ✅ **Robust**: Built on the battle-tested [`ignore`](https://crates.io/crates/ignore) crate (used by ripgrep) and includes a comprehensive test suite covering multiple platforms.
+- 🔒 **Type-safe**: Full type hints.
 
 ## Installation
 
@@ -87,20 +87,6 @@ for entry in powerwalk.walk(
     respect_git_ignore=False,  # Don't respect .gitignore
 ):
     print(entry.path)
-```
-
-### 🔒 Type-Safe
-
-`powerwalk` provides full type hints and uses `typing.overload` to ensure precise type inference based on the `on_error` parameter:
-
-```python
-# Type checkers know this yields only DirEntry
-for entry in powerwalk.walk(".", on_error="ignore"):
-    reveal_type(entry)  # DirEntry
-
-# Type checkers know this yields DirEntry | Error
-for result in powerwalk.walk(".", on_error="yield"):
-    reveal_type(result)  # DirEntry | Error
 ```
 
 ### 🛡️ Error Handling
