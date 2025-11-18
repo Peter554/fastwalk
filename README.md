@@ -24,6 +24,7 @@ Fast parallel directory walking for Python, powered by Rust.
 - 🎯 **Smart filtering**: Built-in support for `.gitignore`, hidden files and glob patterns.
 - 🔒 **Type-safe**: Full type hints.
 - 🛡️ **Error handling**: Flexible error handling with `ignore`, `raise` and `yield` modes.
+- ✅ **Robust**: Built on the battle-tested [`ignore`](https://crates.io/crates/ignore) crate (used by ripgrep) and includes a comprehensive test suite covering multiple platforms.
 
 ## Installation
 

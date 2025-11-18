@@ -13,10 +13,20 @@ compile-dev:
 compile-release:
     @uv run maturin develop --release
 
-# Format the code
-fmt:
+# Format the rust code
+[group('fmt')]
+[working-directory: 'rust']
+fmt-rs:
     @cargo fmt
+
+# Format the python code
+[group('fmt')]
+fmt-py:
     @uv run ruff format
+
+# Format the code
+[group('fmt')]
+fmt: fmt-rs fmt-py
 
 # Run all tests
 [group('test')]

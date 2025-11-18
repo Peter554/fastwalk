@@ -1,10 +1,11 @@
-"""Benchmarks for powerwalk to prevent performance regressions."""
+"""Performance benchmarks for powerwalk to prevent regressions."""
 
 import os
 import random
 
-import powerwalk
 import pytest
+
+import powerwalk
 
 _LARGE_DIR_FILES_PER_DIR = 10
 _LARGE_DIR_SUBDIRS_PER_DIR = 5
@@ -60,6 +61,23 @@ def test_benchmark_walk_with_filter(benchmark, large_directory):
     assert all(entry.path_str.endswith(".py") for entry in result if entry.is_file)
 
 
+def test_benchmark_walk_with_exclude(benchmark, large_directory):
+    """Benchmark walking with exclude patterns."""
+
+    def walk_excluded():
+        return list(
+            powerwalk.walk(
+                large_directory,
+                exclude=[
+                    f"**/dir_{i}" for i in range(_LARGE_DIR_SUBDIRS_PER_DIR) if i % 2
+                ],
+            )
+        )
+
+    result = benchmark(walk_excluded)
+    assert len(result) == 4733
+
+
 def test_benchmark_os_walk_baseline(benchmark, large_directory):
     """Baseline benchmark using os.walk for comparison."""
 
@@ -74,18 +92,3 @@ def test_benchmark_os_walk_baseline(benchmark, large_directory):
 
     result = benchmark(walk_with_os)
     assert len(result) == 58590
-
-
-def test_benchmark_os_walk_with_filter(benchmark, large_directory):
-    """Baseline benchmark using os.walk with manual filtering for comparison."""
-
-    def walk_with_os_filtered():
-        results = []
-        for root, dirs, files in os.walk(large_directory):
-            for name in files:
-                if name.endswith(".py"):
-                    results.append(os.path.join(root, name))
-        return results
-
-    result = benchmark(walk_with_os_filtered)
-    assert len(result) == 4854
